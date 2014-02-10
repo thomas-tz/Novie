@@ -32,6 +32,10 @@ public class GenericSchemaServiceImplTest {
     SqlQueryEngine sqlQueryEngine;
 
     @Mocked
+    @Injectable
+    ContextReaderService contextReaderService;
+
+    @Mocked
     SchemaDefinition config;
 
     @Mocked
@@ -50,6 +54,8 @@ public class GenericSchemaServiceImplTest {
         };
         new NonStrictExpectations() {
             {
+                contextReaderService.getResultSizeLimit();
+                result = 0l;
                 parametersEnvelope.getTimeZoneConstraint();
                 result = voidQueryParameterAware;
                 parametersEnvelope.getConstraints();
@@ -139,6 +145,8 @@ public class GenericSchemaServiceImplTest {
 
         new NonStrictExpectations() {
             {
+                contextReaderService.getResultSizeLimit();
+                result = 0l;
                 parametersEnvelope.getTimeZoneConstraint();
                 result = voidQueryParameterAware;
                 parametersEnvelope.getConstraints();
