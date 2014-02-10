@@ -51,7 +51,7 @@ public class RawConstraint<T> {
 
     /**
      * Constructs a constraint. Equivalent to
-     * {@link #RawConstraint(String, null, QueryOperator, Object)}
+     * {@link #RawConstraint(String, String, com.groupon.novie.internal.engine.QueryOperator, Object)} with information is null.
      *
      * @param dimensionName
      * @param operator
@@ -83,8 +83,7 @@ public class RawConstraint<T> {
      *
      * @param dimension
      * @param informationName
-     * @param operator
-     * @param value
+     * @param operatorValues
      */
     public RawConstraint(String dimension, String informationName, List<Pair<QueryOperator, T>> operatorValues) {
         this.dimensionName = dimension;
