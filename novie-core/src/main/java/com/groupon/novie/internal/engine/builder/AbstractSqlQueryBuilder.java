@@ -31,20 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package com.groupon.novie.internal.engine.builder;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Map.Entry;
-import java.util.TimeZone;
-
-import com.groupon.novie.internal.exception.NovieRuntimeException;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-
 import com.google.common.base.Optional;
 import com.groupon.novie.SchemaDefinition;
 import com.groupon.novie.internal.engine.QueryParameter;
@@ -53,37 +39,50 @@ import com.groupon.novie.internal.engine.constraint.ConstraintPair;
 import com.groupon.novie.internal.engine.constraint.ConstraintPair.BinaryOperator;
 import com.groupon.novie.internal.engine.schema.AbstractSqlColumn;
 import com.groupon.novie.internal.engine.schema.DimensionTable;
+import com.groupon.novie.internal.exception.NovieRuntimeException;
 import com.groupon.novie.internal.response.GroupDisplayingRecord;
 import com.groupon.novie.internal.response.MeasureAppender;
 import com.groupon.novie.internal.response.ReportRecord;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
-public class SqlQueryBuilder<T extends MeasureAppender> implements RowMapper<T>, SqlQueryBuilderAccess {
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.TimeZone;
 
-    private static final Logger LOG = LoggerFactory.getLogger(SqlQueryBuilder.class);
+public abstract class AbstractSqlQueryBuilder<T> implements RowMapper<T>, SqlQueryBuilderAccess {
 
-    private FromElement fromTables;
-    private SelectElement selectElement;
-    private SchemaDefinition starSchemaConfig;
-    private Optional<GroupByElement> groupByElement;
-    private WhereElement whereElement;
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractSqlQueryBuilder.class);
 
-    private Optional<OrderByElement> orderByElement;
-    private Class<T> resultType;
-    private QueryParameter queryParameter;
+    protected FromElement fromTables;
+    protected SelectElement selectElement;
+    protected SchemaDefinition schemaDefinition;
+    protected Optional<GroupByElement> groupByElement;
+    protected WhereElement whereElement;
 
-    private MapSqlParameterSource sqlParameters = new MapSqlParameterSource();
-    private TimeZone tz;
+    protected Optional<OrderByElement> orderByElement;
+    protected Class<T> resultType;
+    protected QueryParameter queryParameter;
 
-    public SqlQueryBuilder(SchemaDefinition starSchemaConfig, Class<T> resultType, QueryParameter queryParameter) {
+    protected MapSqlParameterSource sqlParameters = new MapSqlParameterSource();
+    protected TimeZone tz;
+
+    public AbstractSqlQueryBuilder(SchemaDefinition schemaDefinition, Class<T> resultType, QueryParameter queryParameter) {
         // TODO sanity check + throw exception if case of failure
         selectElement = new SelectElement(this);
         fromTables = new FromElement(this);
-        this.starSchemaConfig = starSchemaConfig;
+        this.schemaDefinition = schemaDefinition;
         this.resultType = resultType;
         this.queryParameter = queryParameter;
         String tzName = queryParameter.getTimezoneName();
         if (tzName == null) {
-            tzName = starSchemaConfig.getDefaultTimezone();
+            tzName = schemaDefinition.getDefaultTimezone();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("No timeZone specified for the query, use the config default one (" + tzName + ").");
             }
@@ -101,7 +100,7 @@ public class SqlQueryBuilder<T extends MeasureAppender> implements RowMapper<T>,
         }
         groupByElement = GroupByElement.createGroupByElement(this);
         whereElement = WhereElement.createWhereElement(this);
-        selectElement.addMeasures(starSchemaConfig.getMeasuresColumn());
+        selectElement.addMeasures(schemaDefinition.getMeasuresColumn());
         if (groupByElement.isPresent()) {
             for (Pair<AbstractSqlColumn, List<AbstractSqlColumn>> v : groupByElement.get().getGroupingColumns()) {
                 selectElement.addTableColumns(v.getRight());
@@ -146,76 +145,7 @@ public class SqlQueryBuilder<T extends MeasureAppender> implements RowMapper<T>,
     }
 
     @Override
-    public T mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-        try {
-            T returnValue = resultType.newInstance();
-            if (getGroupByElement().isPresent() && ReportRecord.class.isAssignableFrom(resultType)) {
-                ReportRecord rr = (ReportRecord) returnValue;
-                GroupDisplayingRecord currentGroup = null;
-                for (Pair<AbstractSqlColumn, List<AbstractSqlColumn>> v : groupByElement.get().getGroupingColumns()) {
-                    if (v.getLeft().getSqlTable() instanceof DimensionTable) {
-                        DimensionTable dimTable = (DimensionTable) v.getLeft().getSqlTable();
-                        currentGroup = rr.addOrRetrieveGroup(dimTable.getDimensionName());
-                        for (AbstractSqlColumn col : v.getRight()) {
-                            String groupValueStr = col.getColumnType().mapResult(col.getAlias(), rs, tz);
-                            currentGroup.addInformation(col.getBusinessName(), groupValueStr);
-                            if (v.getRight().size() == 1) {
-                                // Only one information => selected by the user
-                                currentGroup.setDisplay(groupValueStr);
-                            }
-                        }
-
-                        if (currentGroup.getDisplay() == null) {
-                            // In case of there is multiple returned
-                            // informations
-                            if (StringUtils.isBlank(dimTable.getDisplayTemplate())) {
-                                StringBuilder buff = new StringBuilder();
-                                for (Entry<String, String> e : currentGroup.getInformations().entrySet()) {
-                                    if (buff.length() > 0) {
-                                        buff.append(" ");
-                                    }
-                                    buff.append(e.getValue());
-                                }
-                                currentGroup.setDisplay(buff.toString());
-                            } else {
-                                String display = new String(dimTable.getDisplayTemplate());
-                                for (Entry<String, String> e : currentGroup.getInformations().entrySet()) {
-                                    display = display.replace("%" + e.getKey() + "%", e.getValue() == null ? "null" : e.getValue());
-                                }
-                                currentGroup.setDisplay(display);
-                            }
-                        }
-                    }
-                }
-            }
-            // **
-            // Process the measure
-
-            for (AbstractSqlColumn col : getSelectElement().getMeasures()) {
-
-                switch (col.getColumnType()) {
-                    case DECIMAL:
-                        returnValue.addMeasure(col.getBusinessName(), rs.getDouble(col.getAlias()));
-                        break;
-                    case INTEGER:
-                        returnValue.addMeasure(col.getBusinessName(), rs.getLong(col.getAlias()));
-                        break;
-                    default:
-                        throw new SQLException("Col " + col.getBusinessName() + " has a non supported format for a Measure.");
-
-                }
-
-            }
-
-            return returnValue;
-        } catch (InstantiationException e) {
-            throw new SQLException("Can instanciate result object.", e);
-        } catch (IllegalAccessException e) {
-
-            throw new SQLException("Can instanciate result object.", e);
-        }
-    }
+    public abstract T mapRow(ResultSet rs, int rowNum) throws SQLException;
 
     public MapSqlParameterSource getMapSqlParameterSource() {
         return sqlParameters;
@@ -228,7 +158,7 @@ public class SqlQueryBuilder<T extends MeasureAppender> implements RowMapper<T>,
 
     @Override
     public SchemaDefinition getStarSchemaConfig() {
-        return starSchemaConfig;
+        return schemaDefinition;
     }
 
     @Override

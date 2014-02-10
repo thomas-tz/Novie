@@ -36,6 +36,7 @@ import java.util.Map.Entry;
 
 import javax.annotation.Resource;
 
+import com.groupon.novie.internal.engine.builder.MeasuresSqlQueryBuilder;
 import com.groupon.novie.internal.exception.NovieRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,13 +45,12 @@ import org.springframework.stereotype.Service;
 
 import com.groupon.novie.SchemaDefinition;
 import com.groupon.novie.internal.engine.QueryParameter;
-import com.groupon.novie.internal.engine.builder.SqlQueryBuilder;
 import com.groupon.novie.internal.engine.QueryParameter.QueryParameterKind;
 import com.groupon.novie.internal.response.MeasureAppender;
 
 
 /**
- * The service in charge of managing calls to the {@link SqlQueryBuilder}.
+ * The service in charge of managing calls to the {@link com.groupon.novie.internal.engine.builder.MeasuresSqlQueryBuilder}.
  *
  * @author thomas
  */
@@ -73,9 +73,9 @@ public class SqlQueryEngine {
      * @throws com.groupon.novie.internal.exception.NovieRuntimeException
      */
     public <T extends MeasureAppender> T retrieveSummary(SchemaDefinition schemaDefinition, Class<T> resultClazz, QueryParameter queryParameter) throws NovieRuntimeException {
-        final SqlQueryBuilder<T> sqlQueryBuilder = new SqlQueryBuilder<T>(schemaDefinition, resultClazz,
+        final MeasuresSqlQueryBuilder<T> measuresSqlQueryBuilder = new MeasuresSqlQueryBuilder<T>(schemaDefinition, resultClazz,
                 queryParameter.partialCopy(QueryParameterKind.GROUPS, QueryParameterKind.PAGE));
-        List<T> result = executeQuery(sqlQueryBuilder);
+        List<T> result = executeQuery(measuresSqlQueryBuilder);
         if (result.isEmpty()) {
             throw new NovieRuntimeException("Summary doesn't return any result.");
         }
@@ -84,6 +84,12 @@ public class SqlQueryEngine {
         }
         return result.get(0);
     }
+
+
+  //  public long retrieveResultSize(SchemaDefinition schemaDefinition,QueryParameter queryParameter) throws NovieRuntimeException {
+  //      final MeasuresSqlQueryBuilder<T> sqlQueryBuilder = new MeasuresSqlQueryBuilder<T>(schemaDefinition, resultClazz,
+  //              queryParameter.partialCopy(QueryParameterKind.GROUPS, QueryParameterKind.PAGE));
+  //  }
 
     /**
      * Execute a query to retrieve the records.
@@ -95,24 +101,24 @@ public class SqlQueryEngine {
      * @throws com.groupon.novie.internal.exception.NovieRuntimeException
      */
     public <T extends MeasureAppender> List<T> retrieveRecords(SchemaDefinition schemaDefinition, Class<T> resultClazz, QueryParameter queryParameter) throws NovieRuntimeException {
-        final SqlQueryBuilder<T> sqlQueryBuilder = new SqlQueryBuilder<T>(schemaDefinition, resultClazz, queryParameter);
-        return executeQuery(sqlQueryBuilder);
+        final MeasuresSqlQueryBuilder<T> measuresSqlQueryBuilder = new MeasuresSqlQueryBuilder<T>(schemaDefinition, resultClazz, queryParameter);
+        return executeQuery(measuresSqlQueryBuilder);
     }
 
     /**
-     * Private methode called by the public ones to effectively run the query.
+     * Private method called by the public ones to effectively run the query.
      *
-     * @param sqlQueryBuilder the QueryBuilder used to run the query
+     * @param measuresSqlQueryBuilder the QueryBuilder used to run the query
      * @return a list of resultObject
      * @throws NovieRuntimeException
      */
-    private <T extends MeasureAppender> List<T> executeQuery(final SqlQueryBuilder<T> sqlQueryBuilder) throws NovieRuntimeException {
-        sqlQueryBuilder.buildQuery();
-        final String queryString = sqlQueryBuilder.getQueryString();
+    private <T extends MeasureAppender> List<T> executeQuery(final MeasuresSqlQueryBuilder<T> measuresSqlQueryBuilder) throws NovieRuntimeException {
+        measuresSqlQueryBuilder.buildQuery();
+        final String queryString = measuresSqlQueryBuilder.getQueryString();
         LOG.debug(queryString);
 
         long beforeQuery = System.currentTimeMillis();
-        List<T> returnValue = jdbcTemplate.query(queryString, sqlQueryBuilder.getMapSqlParameterSource(), sqlQueryBuilder);
+        List<T> returnValue = jdbcTemplate.query(queryString, measuresSqlQueryBuilder.getMapSqlParameterSource(), measuresSqlQueryBuilder);
 
         if (LOG.isInfoEnabled()) {
             LOG.info("SQL query successfully ran in " + (System.currentTimeMillis() - beforeQuery) + "ms.");
@@ -120,7 +126,7 @@ public class SqlQueryEngine {
 
         if (LOG.isDebugEnabled()) {
             StringBuilder sb = new StringBuilder();
-            for (Entry<String, Object> e : sqlQueryBuilder.getMapSqlParameterSource().getValues().entrySet()) {
+            for (Entry<String, Object> e : measuresSqlQueryBuilder.getMapSqlParameterSource().getValues().entrySet()) {
                 if (sb.length() > 0) {
                     sb.append(",");
                 }

@@ -45,7 +45,6 @@ import org.springframework.stereotype.Service;
 import com.groupon.novie.SchemaDefinition;
 import com.groupon.novie.internal.GenericSchemaService;
 import com.groupon.novie.internal.engine.QueryParameter;
-import com.groupon.novie.internal.engine.builder.SqlQueryBuilder;
 import com.groupon.novie.internal.engine.constraint.RawConstraint;
 import com.groupon.novie.internal.exception.InvalidParameterException;
 import com.groupon.novie.internal.exception.ServiceException;
@@ -57,7 +56,7 @@ import com.groupon.novie.internal.validation.QueryParameterEnvelope;
 
 /**
  * This is the implementation of the service in charge of generating the report
- * by calling the internal engine - {@link SqlQueryBuilder} - through
+ * by calling the internal engine - {@link com.groupon.novie.internal.engine.builder.MeasuresSqlQueryBuilder} - through
  * {@link SqlQueryEngine}.
  *
  * @author ricardo

@@ -59,7 +59,7 @@ import com.groupon.novie.utils.SchemaDefinitionImpl;
  * @author damiano
  * @since 6/28/13
  */
-public class SqlQueryBuilderTest {
+public class MeasuresSqlQueryBuilderTest {
 
     @Mocked
     SchemaDefinitionImpl starSchemaConfig;
@@ -97,18 +97,18 @@ public class SqlQueryBuilderTest {
             }
         };
 
-        final SqlQueryBuilder<ReportRecord> sqlQueryBuilder = new SqlQueryBuilder<ReportRecord>(starSchemaConfig, ReportRecord.class, parameters);
-        sqlQueryBuilder.buildQuery();
-        final GroupByElement groupByElement = sqlQueryBuilder.getGroupByElement().get();// GroupByElement.createGroupByElement(sqlQueryBuilder).get();
+        final MeasuresSqlQueryBuilder<ReportRecord> measuresSqlQueryBuilder = new MeasuresSqlQueryBuilder<ReportRecord>(starSchemaConfig, ReportRecord.class, parameters);
+        measuresSqlQueryBuilder.buildQuery();
+        final GroupByElement groupByElement = measuresSqlQueryBuilder.getGroupByElement().get();// GroupByElement.createGroupByElement(measuresSqlQueryBuilder).get();
         final ArrayList<Pair<AbstractSqlColumn, ArrayList<AbstractSqlColumn>>> sqlTableColumns = Lists.newArrayList(Pair.of(testTable
                 .getColumnByName("c_id").get(), Lists.newArrayList(testTable.getColumnByName("c_name").get(), testTable.getColumnByName("c_date")
                 .get(), testTable.getColumnByName("c_datetime").get(), testTable.getColumnByName("c_int").get(),
                 testTable.getColumnByName("c_decimal").get())));
-        new NonStrictExpectations(sqlQueryBuilder, groupByElement) {
+        new NonStrictExpectations(measuresSqlQueryBuilder, groupByElement) {
             {
                 groupByElement.getGroupingColumns();
                 result = sqlTableColumns;
-                sqlQueryBuilder.getGroupByElement();
+                measuresSqlQueryBuilder.getGroupByElement();
                 result = Optional.of(groupByElement);
                 resultSet.getTimestamp(testTable.getColumnByName("c_datetime").get().getAlias(), withAny(Calendar.getInstance()));
                 result = new Timestamp(1372430820387l);
@@ -124,7 +124,7 @@ public class SqlQueryBuilderTest {
 
         };
 
-        final ReportRecord measuresRecord = sqlQueryBuilder.mapRow(resultSet, 1);
+        final ReportRecord measuresRecord = measuresSqlQueryBuilder.mapRow(resultSet, 1);
         Assert.assertEquals(measuresRecord.getGroup().size(), 1);
         Assert.assertEquals(measuresRecord.getGroup().get(0).getInformations().get("name"), "testStringResult");
         Assert.assertEquals(measuresRecord.getGroup().get(0).getInformations().get("day"), "2013-06-28+0000");
@@ -154,20 +154,20 @@ public class SqlQueryBuilderTest {
             }
         };
 
-        final SqlQueryBuilder<ReportMeasure> sqlQueryBuilder = new SqlQueryBuilder<ReportMeasure>(starSchemaConfig, ReportMeasure.class, parameters);
-        final SelectElement selectElement = new SelectElement(sqlQueryBuilder);
+        final MeasuresSqlQueryBuilder<ReportMeasure> measuresSqlQueryBuilder = new MeasuresSqlQueryBuilder<ReportMeasure>(starSchemaConfig, ReportMeasure.class, parameters);
+        final SelectElement selectElement = new SelectElement(measuresSqlQueryBuilder);
 
         final List<AbstractSqlColumn> measures = Lists.newArrayList();
         measures.add(new SqlAggrega(testTable, "testColumnName1", "testInfoMeasuresName1", ColumnDataType.INTEGER, 0));
         measures.add(new SqlAggrega(testTable, "testColumnName2", "testInfoMeasuresName2", ColumnDataType.INTEGER, 1));
 
-        new NonStrictExpectations(sqlQueryBuilder, selectElement) {
+        new NonStrictExpectations(measuresSqlQueryBuilder, selectElement) {
             {
-                sqlQueryBuilder.getGroupByElement();
+                measuresSqlQueryBuilder.getGroupByElement();
                 result = Optional.absent();
                 selectElement.getMeasures();
                 result = measures;
-                sqlQueryBuilder.getSelectElement();
+                measuresSqlQueryBuilder.getSelectElement();
                 result = selectElement;
 
                 resultSet.getLong("fact_testColumnName1");
@@ -178,7 +178,7 @@ public class SqlQueryBuilderTest {
 
         };
 
-        final ReportMeasure measuresRecord = sqlQueryBuilder.mapRow(resultSet, 1);
+        final ReportMeasure measuresRecord = measuresSqlQueryBuilder.mapRow(resultSet, 1);
         Assert.assertEquals(measuresRecord.getMeasures().size(), 2);
         Assert.assertEquals(measuresRecord.getMeasures().get("testInfoMeasuresName1"), 2l);
         Assert.assertEquals(measuresRecord.getMeasures().get("testInfoMeasuresName2"), 4l);
