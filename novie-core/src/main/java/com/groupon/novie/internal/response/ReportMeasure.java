@@ -69,4 +69,20 @@ public class ReportMeasure implements MeasureAppender {
         this.measures = measures;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ReportMeasure that = (ReportMeasure) o;
+
+        if (measures != null ? !measures.equals(that.measures) : that.measures != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return measures != null ? measures.hashCode() : 0;
+    }
 }
