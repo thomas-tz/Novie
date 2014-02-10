@@ -72,6 +72,9 @@ public class GenericSchemaServiceImpl implements GenericSchemaService {
     @Autowired
     private SqlQueryEngine sqlQueryEngine;
 
+    @Autowired
+    private ContextReaderService contextReaderService;
+
     @Override
     public Report generateReport(SchemaDefinition config, QueryParameterEnvelope parametersEnvelope) throws ServiceException,
             InvalidParameterException {
@@ -100,6 +103,13 @@ public class GenericSchemaServiceImpl implements GenericSchemaService {
                 throw new InvalidParameterException("Dimension " + StringUtils.join(mandatoryDimension, ",") + " is mandatory.");
             } else {
                 throw new InvalidParameterException("Dimensions " + StringUtils.join(mandatoryDimension, ",") + " are mandatory.");
+            }
+        }
+
+        long resultSizeLimit = contextReaderService.getResultSizeLimit();
+        if (resultSizeLimit > 0) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Result limit is set to: {}.", resultSizeLimit);
             }
         }
 
